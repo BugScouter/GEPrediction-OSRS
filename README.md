@@ -1,83 +1,80 @@
-# OSRS Grand Exchange Price Prediction
+# Modernized OSRS Grand Exchange Price Predictor & Flipping Screener
 
-Start-to-end project where we attempt to harness the power of machine learning to predict Old-school Runescape Grand Exchange prices.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](notebooks/ge_predictor_colab.ipynb)
 
-## Getting started
-The journey so far has been documented in a series of Youtube videos found here: 
-1. [Part 1](https://youtu.be/D5TmBcpgm7k) - Setup and initial trial
-2. [Part 2](https://youtu.be/U453OSC8dkc) - Data Collection
-3. [Part 3](https://www.youtube.com/watch?v=QUvyroIH3jI&list=PLX9loFun2zNmri7jHhLs7NV76wcGRzI45&index=3) - Feature Engineering and Selection
-4. [Part 4](https://www.youtube.com/watch?v=LzVN2MGqz2w&list=PLX9loFun2zNmri7jHhLs7NV76wcGRzI45&index=4) - Hyperparameter Tuning, Application and API
+A modernized machine learning pipeline for predicting Old School RuneScape (OSRS) Grand Exchange prices and identifying optimal 2% GE tax-adjusted flipping opportunities using official OSRS Wiki Real-time Prices API and LightGBM.
 
-### Prerequisites
+## Key Features
 
-- [Python](https://www.python.org/downloads/)
-- [Tensorflow](https://www.tensorflow.org/install)
-- [Jupyter Notebook](https://jupyter.org/install)
-- Python dependencies:
-  - requests
-  - json
-  - csv
-  - time
-  - matplotlib 
-  - numpy
-  - pandas
-  - flask
+- **Official OSRS Wiki API Integration**: Uses real-time high/low snapshots and 5m/1h historical price/volume aggregates.
+- **Accurate 2% GE Tax & Trading Rules**:
+  - 2% tax rate on seller's gross price rounded down (`math.floor(sell_price * 0.02)`).
+  - 0 tax on items selling below 50 GP or tax-exempt items (e.g., Old School Bonds).
+  - Capped at 5,000,000 GP max tax per item (reached at 250,000,000 GP).
+  - Calculates net profit margins and 4-hour buy limit constraints.
+- **Stationary Feature Engineering**: Log returns, EMA ratios (EMA-5 / EMA-20), rolling volatility, relative high-low spreads, volume momentum, and cyclical hour/day sine-cosine encodings.
+- **LightGBM Time-Series Forecasting**: Walk-forward cross-validation (`TimeSeriesSplit`) to evaluate RMSE and directional accuracy without lookahead bias.
+- **Turnkey Google Colab Notebook**: Self-contained cloud training and interactive Plotly visualizer.
+- **FastAPI REST Service**: Light REST endpoints for item search, predictions, and flip screening.
 
-## Usage
+---
 
-### Creating you own models
-1. Change the items_to_predict array in the main() function to the items you wish to use.
-2. Then, run:
-```
-python models.py
-```
-3. You should see the .h5 model file created in the models folder along with features.txt file in the models/features folder
+## Quickstart
 
-### Applying the created models
-1. Make sure you have the latest data stored in data/rsbuddy or change the path of DATA_FOLDER in line 101 of application.py
-2. Change the items_to_predict array in the main() function to match the models you created/have.
-3. Then, run:
-```
-python application.py
-```
-4. You should see a .csv file created (or have data appended to) in the name of that item in data/predictions.
+### Option 1: Open in Google Colab
+Click the badge above or navigate to [`notebooks/ge_predictor_colab.ipynb`](notebooks/ge_predictor_colab.ipynb) to execute the notebook in Google Colab.
 
-### Running the flask app
-1. Change items in items_predicted array in index() to match the items that you've predicted on
-2. Run:
-```
-python flask-app.py
-```
-3. Go to localhost:80 and see your results!
+### Option 2: Local Installation & Execution
 
-### Running the jupyter notebooks
+#### 1. Install Package
+Requires Python 3.11+:
 
-1. Move the preferred notebook out of the Notebooks foler to the main directory 
-2. Run the following command: 
-```
-jupyter notebook
+```bash
+pip install -e .[test]
 ```
 
-### Scraping your own data
+#### 2. Run Tests
 
-If you wish to scrape your own data the way I've been doing it, run the following script every 2 minutes (for osbuddy):
+```bash
+pytest
 ```
-python osbuddy-ge-scraper.py
+
+#### 3. Start REST API
+
+```bash
+uvicorn ge_predictor.api:app --reload --port 8000
 ```
-OR every 30 minutes (for rsbuddy):
 
+Access interactive API docs at `http://localhost:8000/docs`.
+
+---
+
+## API Endpoints
+
+- `GET /health` : API status and version.
+- `GET /items?query={name}` : Search item metadata catalog.
+- `GET /predict/{item_id}` : Get real-time prices, LightGBM price forecast, tax, margin, and recommendation (BUY/SELL/HOLD).
+- `GET /screener?budget={gp}&min_roi={pct}` : Find top tax-adjusted flips matching budget and liquidity parameters.
+
+---
+
+## Project Architecture
+
+```text
+ge_predictor/
+├── __init__.py
+├── client.py          # OSRS Wiki Real-Time Prices API client
+├── features.py        # Stationary feature engineering & time features
+├── models.py          # LightGBM time-series regressor with walk-forward CV
+├── market_rules.py    # 2% GE tax, 4-hour buy limits, net margins
+├── scoring.py         # Flipping screener & cash-stack optimizer
+└── api.py             # FastAPI REST endpoints
+notebooks/
+└── ge_predictor_colab.ipynb  # Turnkey Google Colab notebook
+tests/
+├── test_client.py
+├── test_features.py
+└── test_market_rules.py
+pyproject.toml
+README.md
 ```
-python rsbuddy-ge-scraper.py
-```
-You can do this automatically by using [crontab](http://man7.org/linux/man-pages/man5/crontab.5.html) if you're on a Linux machine or [windows scheduler](https://www.windowscentral.com/how-create-automated-task-using-task-scheduler-windows-10) if you're on a Windows machine. 
-
-## Credits
-
-### Contributions
-
-* Please email me at billnyetheai@gmail.com or message me on discord at ChronicCoder#1667
-
-### Community
-
-* Our amazing discord server: https://discord.gg/ZummSXK
